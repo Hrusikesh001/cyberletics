@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # Frontend React application
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - middleware
+    networks:
+      - sentrifense-network
+    restart: unless-stopped
+
+  # Middleware Express application
+  middleware:
+    build:
+      context: ./middleware
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongodb
+      - gophish
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/sentrifense
+      - JWT_SECRET=change_this_in_production
+      - CLIENT_URL=http://localhost
+      - GOPHISH_BASE_URL=https://gophish:3333/api
+      - GOPHISH_API_KEY=your_gophish_api_key_here
+    volumes:
+      - middleware-logs:/app/logs
+    networks:
+      - sentrifense-network
+    restart: unless-stopped
+
+  # MongoDB database
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=sentrifense
+    networks:
+      - sentrifense-network
+    restart: unless-stopped
+    command: mongod --logpath=/dev/null # Disable MongoDB logging to console
+
+  # Gophish phishing framework
+  gophish:
+    image: gophish/gophish:latest
+    ports:
+      - "3333:3333" # Admin interface
+      - "8080:80"   # Phishing server
+    volumes:
+      - gophish-data:/opt/gophish/data
+    networks:
+      - sentrifense-network
+    restart: unless-stopped
+
+networks:
+  sentrifense-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+    driver: local
+  gophish-data:
+    driver: local
+  middleware-logs:
+    driver: local 

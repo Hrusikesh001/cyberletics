@@ -1,0 +1,60 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Monday at midnight UTC
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  update-dependencies:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Check for frontend updates
+        run: |
+          npm outdated || true
+          npm update
+      
+      - name: Check for backend updates
+        working-directory: ./server
+        run: |
+          npm outdated || true
+          npm update
+      
+      - name: Run lint to check for issues
+        run: npm run lint
+      
+      # If tests are added later, they should be run here
+      # - name: Run tests
+      #   run: npm test
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: Update dependencies
+          title: 'chore: Update dependencies'
+          body: |
+            This is an automated PR to update dependencies to their latest versions.
+            
+            Changes:
+            - Updated npm packages to latest versions
+            - Passed linting checks
+            
+            Please review carefully before merging.
+          branch: dependency-updates
+          base: main
+          delete-branch: true
+          labels: |
+            dependencies
+            automated-pr 
