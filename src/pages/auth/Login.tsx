@@ -50,8 +50,13 @@ const Login: React.FC = () => {
     <div className="flex items-center justify-center min-h-screen bg-background">
       <div className="w-full max-w-md p-4">
         <Card>
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Sentrifense</CardTitle>
+          <CardHeader className="space-y-1 flex flex-col items-center">
+            <img
+              src="/cyberletics-logo.png"
+              alt="Cyberletics Logo"
+              className="h-10 w-auto mb-2"
+              style={{ maxWidth: 50 }}
+            />
             <CardDescription className="text-center">
               Enter your credentials to access your account
             </CardDescription>

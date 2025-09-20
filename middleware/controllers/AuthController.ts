@@ -9,6 +9,7 @@ import config from '../config/config';
 import logger from '../utils/logger';
 import { asyncHandler } from '../utils/errorHandler';
 import { UnauthorizedError, ForbiddenError, NotFoundError, BadRequestError } from '../utils/errorHandler';
+import { sendEmail } from '../utils/email';
 
 // Environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -64,7 +65,7 @@ class AuthController {
     await user.save();
 
     // Log the event
-    await AuditLog.createLog({
+    await (AuditLog as any).createLog({
       tenantId,
       userId: user._id,
       eventType: 'user_created',
@@ -76,6 +77,14 @@ class AuthController {
     });
 
     logger.info(`User registered: ${user.email}`, { userId: user._id, tenantId });
+
+    // Send welcome email
+    await sendEmail({
+      to: user.email,
+      subject: 'Welcome to Sentrifense',
+      templateName: 'welcome',
+      templateData: { user, tenant }
+    });
 
     // Return success without sensitive data
     return res.status(201).json({
@@ -107,7 +116,7 @@ class AuthController {
     const user = await User.findOne({ email });
     if (!user) {
       // Log failed login attempt
-      await AuditLog.createLog({
+      await (AuditLog as any).createLog({
         tenantId: new mongoose.Types.ObjectId(), // Placeholder since no tenant yet
         userId: new mongoose.Types.ObjectId(), // Placeholder since no user found
         eventType: 'failed_login',
@@ -131,7 +140,7 @@ class AuthController {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       // Log failed login attempt for existing user
-      await AuditLog.createLog({
+      await (AuditLog as any).createLog({
         tenantId: user.tenants[0]?.tenantId || new mongoose.Types.ObjectId(),
         userId: user._id,
         eventType: 'failed_login',
@@ -167,7 +176,7 @@ class AuthController {
     await user.save();
 
     // Log successful login
-    await AuditLog.createLog({
+    await (AuditLog as any).createLog({
       tenantId: defaultTenantId,
       userId: user._id,
       eventType: 'login',
@@ -273,7 +282,7 @@ class AuthController {
     await user.save();
 
     // Log password change
-    await AuditLog.createLog({
+    await (AuditLog as any).createLog({
       tenantId,
       userId: user._id,
       eventType: 'password_change',
@@ -300,7 +309,7 @@ class AuthController {
     const tenantId = (req as any).tenantId;
 
     // Log logout
-    await AuditLog.createLog({
+    await (AuditLog as any).createLog({
       tenantId,
       userId,
       eventType: 'logout',
@@ -398,7 +407,7 @@ class AuthController {
     await user.save();
 
     // Log password reset
-    await AuditLog.createLog({
+    await (AuditLog as any).createLog({
       tenantId: user.tenants[0]?.tenantId || new mongoose.Types.ObjectId(),
       userId: user._id,
       eventType: 'password_change',

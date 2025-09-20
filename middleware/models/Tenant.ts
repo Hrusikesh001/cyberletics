@@ -18,7 +18,7 @@ export interface ITenant extends Document {
     allowedTemplates: string[];
   };
   status: 'active' | 'suspended' | 'pending';
-  plan: 'free' | 'basic' | 'professional' | 'enterprise';
+  plan: 'free' | 'pro' | 'enterprise';
   billingInfo?: {
     contactName: string;
     contactEmail: string;
@@ -36,6 +36,12 @@ export interface ITenant extends Document {
     endDate: Date;
     renewalDate: Date;
     status: 'active' | 'canceled' | 'past_due';
+  };
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  planLimits: {
+    maxCampaigns: number;
+    maxUsers: number;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -111,8 +117,12 @@ const TenantSchema: Schema = new Schema(
     },
     plan: {
       type: String,
-      enum: ['free', 'basic', 'professional', 'enterprise'],
+      enum: ['free', 'pro', 'enterprise'],
       default: 'free'
+    },
+    planLimits: {
+      maxCampaigns: { type: Number, default: 10 },
+      maxUsers: { type: Number, default: 5 }
     },
     billingInfo: {
       contactName: String,
@@ -135,6 +145,12 @@ const TenantSchema: Schema = new Schema(
         enum: ['active', 'canceled', 'past_due'],
         default: 'active'
       }
+    },
+    stripeCustomerId: {
+      type: String
+    },
+    stripeSubscriptionId: {
+      type: String
     }
   },
   {

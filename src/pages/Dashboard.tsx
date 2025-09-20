@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -29,9 +29,35 @@ const campaignData = [
   { name: 'Jun', completed: 2, ongoing: 3 },
 ];
 
+// Extend Tenant type for branding
+interface TenantWithBranding {
+  id: string;
+  name: string;
+  branding?: {
+    logo?: string;
+    color?: string;
+  };
+}
+
 const Dashboard: React.FC = () => {
+  const { user, currentTenant } = useAuth();
+  const tenant: TenantWithBranding | null = currentTenant;
   return (
     <div className="space-y-6">
+      <div className="flex items-center space-x-4 mb-2">
+        <img
+          src={tenant?.branding?.logo || "/cyberletics-logo.png"}
+          alt={(tenant?.name || "") + " Logo"}
+          className="h-10 w-auto"
+          style={{ maxWidth: 48 }}
+        />
+        <div>
+          <div className="font-semibold text-lg">{tenant?.name}</div>
+          <div className="text-sm text-muted-foreground">
+            You are logged in as <span className="font-medium">{user?.email}</span> (Role: <span className="font-medium">{user?.role}</span>)
+          </div>
+        </div>
+      </div>
       <PageHeader 
         title="Dashboard" 
         description="Overview of your phishing campaign activities."

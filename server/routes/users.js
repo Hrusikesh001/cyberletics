@@ -1,23 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { createGophishClient } = require('../server');
+const GophishClient = require('../lib/gophishClient');
 
 // Get all Gophish users
 router.get('/', async (req, res) => {
   try {
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get('/users/');
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getUsers();
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to fetch users',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -34,19 +38,23 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get(`/users/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getUser(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 404).json({
         status: 'error',
         message: `Failed to fetch user with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -63,20 +71,24 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const userData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/users/', userData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 201) {
+    const result = await gophishClient.createUser(userData);
+    
+    if (result.success) {
       res.status(201).json({
         status: 'success',
         message: 'User created successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to create user',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -94,20 +106,24 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const userData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.put(`/users/${id}`, userData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.updateUser(id, userData);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'User updated successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to update user with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -124,19 +140,23 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.delete(`/users/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.deleteUser(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'User deleted successfully'
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to delete user with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {

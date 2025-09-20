@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createGophishClient } = require('../server');
+const GophishClient = require('../lib/gophishClient');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const csv = require('csv-parser');
@@ -9,19 +9,23 @@ const { Readable } = require('stream');
 // Get all groups
 router.get('/', async (req, res) => {
   try {
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get('/groups/');
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getGroups();
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to fetch groups',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -38,19 +42,23 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get(`/groups/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getGroup(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 404).json({
         status: 'error',
         message: `Failed to fetch group with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -67,20 +75,24 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const groupData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/groups/', groupData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 201) {
+    const result = await gophishClient.createGroup(groupData);
+    
+    if (result.success) {
       res.status(201).json({
         status: 'success',
         message: 'Group created successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to create group',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -143,20 +155,23 @@ router.post('/import', upload.single('csv_file'), async (req, res) => {
       targets: users
     };
     
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/groups/', groupData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
+    const result = await gophishClient.createGroup(groupData);
     
-    if (response.status === 201) {
+    if (result.success) {
       res.status(201).json({
         status: 'success',
         message: `Group created with ${users.length} users`,
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to create group from CSV',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -174,20 +189,23 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const groupData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.put(`/groups/${id}`, groupData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
+    const result = await gophishClient.updateGroup(id, groupData);
     
-    if (response.status === 200) {
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'Group updated successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to update group with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -204,19 +222,22 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.delete(`/groups/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
+    const result = await gophishClient.deleteGroup(id);
     
-    if (response.status === 200) {
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'Group deleted successfully'
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to delete group with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {

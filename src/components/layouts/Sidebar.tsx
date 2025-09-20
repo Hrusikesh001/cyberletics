@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Send, FileText, Users, Mail, BarChart, Settings, User, ChevronLeft, ChevronRight, Shield, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Send, FileText, Users, Mail, BarChart, Settings, User, ChevronLeft, ChevronRight, Shield, GraduationCap, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
   {
@@ -69,6 +70,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { logout } = useAuth();
   
   const toggleCollapse = () => {
     setCollapsed(!collapsed);
@@ -81,17 +83,27 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       className
     )}>
       <div className="flex items-center p-4">
+        {/* Logo */}
         <div className={cn(
-          "font-bold text-xl text-white transition-opacity duration-300",
-          collapsed ? "opacity-0 w-0" : "opacity-100"
+          "flex items-center flex-1", // Allow flex-1 to take space
+          collapsed ? "justify-center" : "" // Center item when collapsed
         )}>
-          Sentrifense
+          <img
+            src="/cyberletics-logo.png"
+            alt="Cyberletics Logo"
+            className={cn(
+              "h-8 w-auto",
+              collapsed ? "" : "mr-2" // No margin when collapsed, add margin when expanded
+            )}
+            style={{ maxWidth: 32 }}
+          />
         </div>
+        {/* Collapse button */}
         <button 
           onClick={toggleCollapse}
           className={cn(
-            "p-1 rounded text-white hover:bg-gray-700 transition-all ml-auto",
-            collapsed && "mx-auto"
+            "p-1 rounded text-white hover:bg-gray-700 transition-all",
+            collapsed ? "mx-auto" : "ml-auto" // Center button when collapsed, move to right when expanded
           )}
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
@@ -163,6 +175,25 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           })}
         </ul>
       </nav>
+
+      {/* Logout Button */}
+      <div className="p-4 border-t border-gray-800">
+        <button
+          onClick={logout}
+          className={cn(
+            "flex items-center w-full px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 rounded transition-colors",
+            collapsed && "justify-center"
+          )}
+        >
+          <LogOut size={20} className={cn("mr-3", collapsed && "mr-0")} />
+          <span className={cn(
+            "transition-opacity duration-300",
+            collapsed ? "opacity-0 hidden" : "opacity-100"
+          )}>
+            Logout
+          </span>
+        </button>
+      </div>
     </aside>
   );
 };

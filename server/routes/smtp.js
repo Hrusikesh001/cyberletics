@@ -1,23 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { createGophishClient } = require('../server');
+const GophishClient = require('../lib/gophishClient');
 
 // Get all SMTP profiles
 router.get('/', async (req, res) => {
   try {
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get('/smtp/');
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getSmtpProfiles();
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to fetch SMTP profiles',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -34,19 +38,23 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get(`/smtp/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getSmtpProfile(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 404).json({
         status: 'error',
         message: `Failed to fetch SMTP profile with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -63,20 +71,24 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const smtpData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/smtp/', smtpData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 201) {
+    const result = await gophishClient.createSmtpProfile(smtpData);
+    
+    if (result.success) {
       res.status(201).json({
         status: 'success',
         message: 'SMTP profile created successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to create SMTP profile',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -94,20 +106,24 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const smtpData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.put(`/smtp/${id}`, smtpData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.updateSmtpProfile(id, smtpData);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'SMTP profile updated successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to update SMTP profile with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -124,19 +140,23 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.delete(`/smtp/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.deleteSmtpProfile(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'SMTP profile deleted successfully'
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to delete SMTP profile with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {

@@ -9,6 +9,8 @@ import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import connectDB from './config/database';
 import routes from './routes';
+import billingRoutes from './routes/billingRoutes';
+import auditLogRoutes from './routes/auditLogRoutes';
 
 // Import models
 import UserProgress from './models/UserProgress';
@@ -102,8 +104,28 @@ const verifyToken = (req: express.Request, res: express.Response, next: express.
   }
 };
 
+// Tenant context extraction middleware
+function extractTenantContext(req, res, next) {
+  const user = req.user;
+  let tenantId = req.headers['x-tenant-id'] || (user && user.tenantId);
+  if (user && user.tenants && user.tenants.length > 1) {
+    // Multi-tenant user must specify tenant
+    if (!tenantId) {
+      return res.status(400).json({ message: 'Missing X-Tenant-ID for multi-tenant user' });
+    }
+    const hasTenant = user.tenants.some(t => t.tenantId.toString() === tenantId);
+    if (!hasTenant) {
+      return res.status(403).json({ message: 'User does not belong to specified tenant' });
+    }
+  } else if (user && user.tenants && user.tenants.length === 1) {
+    tenantId = user.tenants[0].tenantId.toString();
+  }
+  req.tenantId = tenantId;
+  next();
+}
+
 // Proxy middleware setup with tenant context
-app.use('/api', verifyToken, async (req, res, next) => {
+app.use('/api', verifyToken, extractTenantContext, async (req, res, next) => {
   const tenantId = (req as any).tenantId;
   const goPhishClient = createGoPhishClient(tenantId);
   
@@ -366,6 +388,12 @@ app.post('/webhooks', (req, res) => {
 // Mount API routes
 app.use('/api', routes);
 
+// Register billing routes
+app.use('/api/billing', billingRoutes);
+
+// Register audit log routes
+app.use('/api/audit-logs', auditLogRoutes);
+
 // Proxy to GoPhish API for authenticated users
 app.use('/gophish', createProxyMiddleware({
   target: config.gophish.baseUrl,
@@ -403,6 +431,9 @@ app.use(notFoundHandler);
 
 // Global error handling middleware
 app.use(errorHandler);
+
+// Use this middleware after authentication
+app.use(extractTenantContext);
 
 // Start server
 const PORT = config.server.port;

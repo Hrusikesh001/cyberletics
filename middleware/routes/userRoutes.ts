@@ -88,10 +88,18 @@ router.put('/profile', async (req, res) => {
 // List all users (super admin only)
 router.get('/', requireSuperAdmin, async (req, res) => {
   try {
-    const users = await User.find()
-      .select('-password')
-      .sort({ createdAt: -1 });
-    
+    const userRole = (req as any).user.role;
+    const tenantId = (req as any).tenantId;
+    let users;
+    if (userRole === 'super-admin') {
+      users = await User.find()
+        .select('-password')
+        .sort({ createdAt: -1 });
+    } else {
+      users = await User.find({ 'tenants.tenantId': tenantId })
+        .select('-password')
+        .sort({ createdAt: -1 });
+    }
     return res.json(users);
   } catch (error: any) {
     console.error('Error listing users:', error);

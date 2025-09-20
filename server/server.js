@@ -1,11 +1,11 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const { connectDB } = require('./db'); // Local storage connection logic
 
 // Load environment variables
 dotenv.config();
@@ -56,23 +56,58 @@ app.use(cors({
   credentials: true
 }));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/sentrifense')
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Connect to MongoDB
+connectDB();
+
+// Import the GophishClient
+const GophishClient = require('./lib/gophishClient');
 
 // Create Gophish API client
 const createGophishClient = () => {
-  const client = axios.create({
-    baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333/api',
-    headers: {
-      'Authorization': `Bearer ${process.env.GOPHISH_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    validateStatus: status => status < 500
-  });
+  // Check if we're in development mode and using mock data
+  if (process.env.NODE_ENV === 'development' && process.env.USE_MOCK_DATA === 'true') {
+    // Return a mock client that doesn't actually connect to Gophish
+    return {
+      get: async (url) => {
+        console.log(`MOCK: GET request to ${url}`);
+        // Return mock data based on the requested endpoint
+        if (url === '/') {
+          return { status: 200, data: { version: 'Mock Gophish v0.0.0' } };
+        } else if (url === '/campaigns') {
+          return { status: 200, data: [] }; // Return empty array of campaigns
+        } else if (url === '/templates') {
+          return { status: 200, data: [] }; // Return empty array of templates
+        } else if (url === '/smtp') {
+          return { status: 200, data: [] }; // Return empty array of SMTP settings
+        } else if (url === '/landing_pages') {
+          return { status: 200, data: [] }; // Return empty array of landing pages
+        } else if (url === '/groups') {
+          return { status: 200, data: [] }; // Return empty array of groups
+        }
+        // Default response
+        return { status: 200, data: {} };
+      },
+      post: async (url, data) => {
+        console.log(`MOCK: POST request to ${url}`, data);
+        return { status: 200, data: { id: 1, ...data } };
+      },
+      put: async (url, data) => {
+        console.log(`MOCK: PUT request to ${url}`, data);
+        return { status: 200, data: { id: 1, ...data } };
+      },
+      delete: async (url) => {
+        console.log(`MOCK: DELETE request to ${url}`);
+        return { status: 200, data: { success: true } };
+      }
+    };
+  }
   
-  return client;
+  // Create and return the new GophishClient instance
+  return new GophishClient({
+    baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+    apiKey: process.env.GOPHISH_API_KEY || '',
+    timeout: 10000
+  });
 };
 
 // Load routes
@@ -84,6 +119,8 @@ const groupsRoutes = require('./routes/groups');
 const campaignsRoutes = require('./routes/campaigns');
 const usersRoutes = require('./routes/users');
 const webhooksRoutes = require('./routes/webhooks');
+const authRoutes = require('./routes/auth');
+const tenantRoutes = require('./routes/tenant');
 
 // API routes
 app.use('/api/settings', settingsRoutes);
@@ -94,6 +131,8 @@ app.use('/api/groups', groupsRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/auth', authRoutes); // Auth, onboarding, invitation
+app.use('/api/tenant', tenantRoutes); // Tenant-specific data
 
 // Webhook endpoint
 app.post('/webhooks', (req, res) => {
@@ -139,4 +178,7 @@ server.listen(PORT, () => {
 });
 
 // Export the Gophish client creator for use in route handlers
-module.exports = { createGophishClient }; 
+module.exports = { createGophishClient };
+
+// Also export it globally for route handlers
+global.createGophishClient = createGophishClient; 

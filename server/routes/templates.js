@@ -1,25 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { createGophishClient } = require('../server');
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
+const GophishClient = require('../lib/gophishClient');
 
 // Get all templates
 router.get('/', async (req, res) => {
   try {
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get('/templates/');
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getTemplates();
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to fetch templates',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -36,19 +38,23 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get(`/templates/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getTemplate(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 404).json({
         status: 'error',
         message: `Failed to fetch template with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -65,20 +71,24 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const templateData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/templates/', templateData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 201) {
+    const result = await gophishClient.createTemplate(templateData);
+    
+    if (result.success) {
       res.status(201).json({
         status: 'success',
         message: 'Template created successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to create template',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -91,72 +101,29 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Import a template from an HTML file
-router.post('/import', upload.single('template_file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'No template file provided'
-      });
-    }
-    
-    const templateName = req.body.name || `Imported Template ${new Date().toISOString()}`;
-    const templateSubject = req.body.subject || 'Imported Template';
-    const templateContent = req.file.buffer.toString('utf8');
-    
-    const templateData = {
-      name: templateName,
-      subject: templateSubject,
-      html: templateContent,
-      text: req.body.text || ''
-    };
-    
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/templates/', templateData);
-    
-    if (response.status === 201) {
-      res.status(201).json({
-        status: 'success',
-        message: 'Template imported successfully',
-        data: response.data
-      });
-    } else {
-      res.status(response.status).json({
-        status: 'error',
-        message: 'Failed to import template',
-        error: response.data
-      });
-    }
-  } catch (error) {
-    console.error('Error importing template:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to import template',
-      error: error.message
-    });
-  }
-});
-
 // Update an existing template
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const templateData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.put(`/templates/${id}`, templateData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.updateTemplate(id, templateData);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'Template updated successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to update template with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -173,19 +140,23 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.delete(`/templates/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.deleteTemplate(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'Template deleted successfully'
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to delete template with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,15 +7,19 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Eye, EyeOff, UserRound, Lock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/context/AuthContext';
+import axios from 'axios';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [registerTenantName, setRegisterTenantName] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,46 +36,46 @@ const LoginPage = () => {
     navigate('/');
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simple validation
-    if (!registerEmail || !registerPassword) {
-      toast.error('Please enter both email and password');
+    if (!registerEmail || !registerPassword || !registerTenantName) {
+      toast.error('Please enter email, password, and tenant name');
       return;
     }
-
     if (registerPassword !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-
-    // Mock registration logic
-    toast.success('Registration successful! You can now log in');
-    localStorage.setItem('userLoggedIn', 'true');
-    navigate('/');
+    try {
+      const response = await axios.post<{ token: string; user: any; tenant: any }>(
+        (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/auth/register-tenant',
+        {
+          email: registerEmail,
+          password: registerPassword,
+          tenantName: registerTenantName,
+        }
+      );
+      const { token, user, tenant } = response.data;
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('current_tenant_id', tenant.id);
+      // Optionally, update AuthContext here if needed
+      toast.success('Registration successful!');
+      navigate('/dashboard');
+    } catch (error) {
+      toast.error('Registration failed. Please try again.');
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2 flex flex-col items-center">
-          <div className="mx-auto w-12 h-12 mb-4 flex items-center justify-center rounded-full bg-primary/10">
-            <svg 
-              width="42" 
-              height="42" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="text-primary"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-          </div>
-          <CardTitle className="text-2xl font-bold text-center">Welcome to Sentrifense</CardTitle>
+          <img
+            src="/cyberletics-logo.png"
+            alt="Cyberletics Logo"
+            className="mx-auto h-12 w-auto mb-4"
+            style={{ maxWidth: 60 }}
+          />
           <CardDescription className="text-center">
             Security Awareness Platform
           </CardDescription>
@@ -140,6 +143,17 @@ const LoginPage = () => {
             
             <TabsContent value="register">
               <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="register-tenant-name">Tenant Name</Label>
+                  <Input
+                    id="register-tenant-name"
+                    type="text"
+                    placeholder="Your Organization"
+                    className="pl-3"
+                    value={registerTenantName}
+                    onChange={(e) => setRegisterTenantName(e.target.value)}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
                   <div className="relative">

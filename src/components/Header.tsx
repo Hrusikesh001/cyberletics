@@ -13,9 +13,20 @@ import {
 import ThemeSwitcher from './ThemeSwitcher';
 import { useNavigate } from 'react-router-dom';
 
+// Extend Tenant type for branding
+interface TenantWithBranding {
+  id: string;
+  name: string;
+  branding?: {
+    logo?: string;
+    color?: string;
+  };
+}
+
 const Header: React.FC = () => {
   const { user, tenants, currentTenant, selectTenant, logout } = useAuth();
   const navigate = useNavigate();
+  const tenant: TenantWithBranding | null = currentTenant;
 
   if (!user || !currentTenant) {
     return null;
@@ -24,12 +35,15 @@ const Header: React.FC = () => {
   return (
     <header className="border-b px-4 py-3 bg-background">
       <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <h1 className="text-xl font-semibold">
-            Sentrifense
-          </h1>
+        <div className="flex items-center space-x-3">
+          <img
+            src={tenant?.branding?.logo || "/cyberletics-logo.png"}
+            alt={(tenant?.name || "") + " Logo"}
+            className="h-8 w-auto"
+            style={{ maxWidth: 40 }}
+          />
+          <span className="font-semibold text-lg">{tenant?.name}</span>
         </div>
-
         <div className="flex items-center space-x-4">
           {/* Tenant Selector */}
           {tenants.length > 1 && (
@@ -51,10 +65,8 @@ const Header: React.FC = () => {
               </Select>
             </div>
           )}
-
           {/* Theme Switcher */}
           <ThemeSwitcher />
-
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -67,8 +79,8 @@ const Header: React.FC = () => {
             <DropdownMenuContent align="end">
               <div className="flex items-center justify-start gap-2 p-2">
                 <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">{user.name}</p>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <p className="font-medium">{user.email}</p>
+                  <p className="text-sm text-muted-foreground">Role: {user.role}</p>
                 </div>
               </div>
               <DropdownMenuSeparator />

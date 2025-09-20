@@ -1,16 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { createGophishClient } = require('../server');
+const GophishClient = require('../lib/gophishClient');
 
 // Get Gophish server info and connection status
 router.get('/gophish', async (req, res) => {
   try {
-    const gophishClient = createGophishClient();
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    // Test connection to Gophish API by fetching server information
-    const response = await gophishClient.get('/');
+    // Test connection to Gophish API
+    const result = await gophishClient.testConnection();
     
-    if (response.status === 200) {
+    if (result.success) {
       // Return server info with masked API key
       const apiKey = process.env.GOPHISH_API_KEY || '';
       const maskedKey = apiKey.length > 0 
@@ -19,15 +22,16 @@ router.get('/gophish', async (req, res) => {
       
       res.json({
         status: 'connected',
-        version: response.data?.version || 'Unknown',
-        baseUrl: process.env.GOPHISH_BASE_URL || 'https://localhost:3333/api',
-        apiKey: maskedKey
+        version: result.data?.version || 'Unknown',
+        baseUrl: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+        apiKey: maskedKey,
+        config: gophishClient.getConfig()
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to connect to Gophish API',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -43,22 +47,26 @@ router.get('/gophish', async (req, res) => {
 // Test Gophish connection
 router.post('/gophish/test', async (req, res) => {
   try {
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get('/');
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.testConnection();
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'Successfully connected to Gophish API',
         data: {
-          version: response.data?.version || 'Unknown'
+          version: result.data?.version || 'Unknown'
         }
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to connect to Gophish API',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -89,7 +97,24 @@ router.put('/gophish', (req, res) => {
   
   res.json({
     status: 'success',
-    message: 'Gophish settings updated successfully'
+    message: 'Gophish settings updated successfully',
+    config: {
+      baseUrl: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: apiKey ? `${apiKey.substring(0, 4)}••••••••${apiKey.substring(apiKey.length - 4)}` : ''
+    }
+  });
+});
+
+// Get Gophish API configuration
+router.get('/gophish/config', (req, res) => {
+  const gophishClient = new GophishClient({
+    baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+    apiKey: process.env.GOPHISH_API_KEY || ''
+  });
+  
+  res.json({
+    status: 'success',
+    data: gophishClient.getConfig()
   });
 });
 

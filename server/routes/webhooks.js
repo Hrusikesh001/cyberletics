@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const WebhookEvent = require('../models/WebhookEvent');
-const Campaign = require('../models/Campaign');
+const { localDB } = require('../db');
 
 // Middleware to validate webhook events
 const validateWebhook = (req, res, next) => {
@@ -22,24 +21,29 @@ router.get('/', async (req, res) => {
   try {
     const { limit = 100, offset = 0, campaignId, event: eventType } = req.query;
     
-    // Build query
-    const query = {};
-    if (campaignId) query.campaignId = campaignId;
-    if (eventType) query.event = eventType;
+    let events = localDB.getWebhooks();
     
-    // Execute query with pagination
-    const events = await WebhookEvent.find(query)
-      .sort({ timestamp: -1 })
-      .skip(parseInt(offset))
-      .limit(parseInt(limit));
+    // Filter by campaign ID
+    if (campaignId) {
+      events = events.filter(e => e.campaignId === campaignId);
+    }
     
-    // Get total count for pagination
-    const total = await WebhookEvent.countDocuments(query);
+    // Filter by event type
+    if (eventType) {
+      events = events.filter(e => e.event === eventType);
+    }
+    
+    // Sort by timestamp (newest first)
+    events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    // Apply pagination
+    const total = events.length;
+    const paginatedEvents = events.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
     
     res.json({
       status: 'success',
       data: {
-        events,
+        events: paginatedEvents,
         pagination: {
           total,
           offset: parseInt(offset),
@@ -63,23 +67,24 @@ router.get('/campaign/:campaignId', async (req, res) => {
     const { campaignId } = req.params;
     const { limit = 100, offset = 0, event: eventType } = req.query;
     
-    // Build query
-    const query = { campaignId };
-    if (eventType) query.event = eventType;
+    let events = localDB.getWebhooks().filter(e => e.campaignId === campaignId);
     
-    // Execute query with pagination
-    const events = await WebhookEvent.find(query)
-      .sort({ timestamp: -1 })
-      .skip(parseInt(offset))
-      .limit(parseInt(limit));
+    // Filter by event type
+    if (eventType) {
+      events = events.filter(e => e.event === eventType);
+    }
     
-    // Get total count for pagination
-    const total = await WebhookEvent.countDocuments(query);
+    // Sort by timestamp (newest first)
+    events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    // Apply pagination
+    const total = events.length;
+    const paginatedEvents = events.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
     
     res.json({
       status: 'success',
       data: {
-        events,
+        events: paginatedEvents,
         pagination: {
           total,
           offset: parseInt(offset),
@@ -103,7 +108,7 @@ router.post('/', validateWebhook, async (req, res) => {
     const eventData = req.body;
     
     // Map Gophish webhook data to our schema
-    const webhookEvent = new WebhookEvent({
+    const webhookEvent = {
       event: eventData.message.includes('opened') ? 'email_opened' :
              eventData.message.includes('clicked') ? 'link_clicked' :
              eventData.message.includes('submitted') ? 'form_submitted' :
@@ -118,35 +123,37 @@ router.post('/', validateWebhook, async (req, res) => {
       },
       ip: eventData.payload?.ip,
       userAgent: eventData.payload?.browser?.user_agent,
-      timestamp: new Date()
-    });
+      timestamp: new Date().toISOString()
+    };
     
-    // Save to MongoDB
-    await webhookEvent.save();
+    // Save to local storage
+    const savedEvent = localDB.addWebhook(webhookEvent);
     
     // Update campaign stats in local DB
-    const campaign = await Campaign.findOne({ gophishId: eventData.campaign_id.toString() });
+    const campaigns = localDB.getCampaigns();
+    const campaign = campaigns.find(c => c.gophishId === eventData.campaign_id.toString());
+    
     if (campaign) {
       // Find the specific user result
-      const userResult = campaign.results.find(r => r.email === eventData.email);
+      const userResult = campaign.results?.find(r => r.email === eventData.email);
       
       if (userResult) {
         // Update status and dates based on event type
         if (eventData.message.includes('opened')) {
           userResult.status = 'OPENED';
-          userResult.openDate = new Date();
+          userResult.openDate = new Date().toISOString();
           campaign.stats.opened = (campaign.stats.opened || 0) + 1;
         } else if (eventData.message.includes('clicked')) {
           userResult.status = 'CLICKED';
-          userResult.clickDate = new Date();
+          userResult.clickDate = new Date().toISOString();
           campaign.stats.clicked = (campaign.stats.clicked || 0) + 1;
         } else if (eventData.message.includes('submitted')) {
           userResult.status = 'SUBMITTED';
-          userResult.submitDate = new Date();
+          userResult.submitDate = new Date().toISOString();
           campaign.stats.submitted = (campaign.stats.submitted || 0) + 1;
         } else if (eventData.message.includes('reported')) {
           userResult.status = 'REPORTED';
-          userResult.reportDate = new Date();
+          userResult.reportDate = new Date().toISOString();
           campaign.stats.reported = (campaign.stats.reported || 0) + 1;
         }
         
@@ -161,7 +168,11 @@ router.post('/', validateWebhook, async (req, res) => {
           userResult.longitude = eventData.payload.longitude;
         }
         
-        await campaign.save();
+        // Update the campaign in local storage
+        const updatedCampaigns = campaigns.map(c => 
+          c.id === campaign.id ? campaign : c
+        );
+        localDB.saveCampaigns(updatedCampaigns);
       }
     }
     
@@ -171,7 +182,7 @@ router.post('/', validateWebhook, async (req, res) => {
     res.status(201).json({
       status: 'success',
       message: 'Webhook event processed and saved',
-      data: webhookEvent
+      data: savedEvent
     });
   } catch (error) {
     console.error('Error processing webhook event:', error);
@@ -186,7 +197,7 @@ router.post('/', validateWebhook, async (req, res) => {
 // Clear all webhook events
 router.delete('/', async (req, res) => {
   try {
-    await WebhookEvent.deleteMany({});
+    localDB.saveWebhooks([]);
     
     res.json({
       status: 'success',
@@ -206,7 +217,9 @@ router.delete('/', async (req, res) => {
 router.delete('/campaign/:campaignId', async (req, res) => {
   try {
     const { campaignId } = req.params;
-    await WebhookEvent.deleteMany({ campaignId });
+    const webhooks = localDB.getWebhooks();
+    const filteredWebhooks = webhooks.filter(w => w.campaignId !== campaignId);
+    localDB.saveWebhooks(filteredWebhooks);
     
     res.json({
       status: 'success',

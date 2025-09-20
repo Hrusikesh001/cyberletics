@@ -1,25 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { createGophishClient } = require('../server');
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
+const GophishClient = require('../lib/gophishClient');
 
 // Get all landing pages
 router.get('/', async (req, res) => {
   try {
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get('/pages/');
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getPages();
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to fetch landing pages',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -36,19 +38,23 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.get(`/pages/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.getPage(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 404).json({
         status: 'error',
         message: `Failed to fetch landing page with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -65,20 +71,24 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const pageData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/pages/', pageData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 201) {
+    const result = await gophishClient.createPage(pageData);
+    
+    if (result.success) {
       res.status(201).json({
         status: 'success',
         message: 'Landing page created successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: 'Failed to create landing page',
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -91,72 +101,29 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Import a landing page from an HTML file
-router.post('/import', upload.single('page_file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'No landing page file provided'
-      });
-    }
-    
-    const pageName = req.body.name || `Imported Page ${new Date().toISOString()}`;
-    const pageContent = req.file.buffer.toString('utf8');
-    
-    const pageData = {
-      name: pageName,
-      html: pageContent,
-      capture_credentials: req.body.capture_credentials === 'true',
-      capture_passwords: req.body.capture_passwords === 'true',
-      redirect_url: req.body.redirect_url || ''
-    };
-    
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.post('/pages/', pageData);
-    
-    if (response.status === 201) {
-      res.status(201).json({
-        status: 'success',
-        message: 'Landing page imported successfully',
-        data: response.data
-      });
-    } else {
-      res.status(response.status).json({
-        status: 'error',
-        message: 'Failed to import landing page',
-        error: response.data
-      });
-    }
-  } catch (error) {
-    console.error('Error importing landing page:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to import landing page',
-      error: error.message
-    });
-  }
-});
-
 // Update an existing landing page
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const pageData = req.body;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.put(`/pages/${id}`, pageData);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.updatePage(id, pageData);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'Landing page updated successfully',
-        data: response.data
+        data: result.data
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to update landing page with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
@@ -173,19 +140,23 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const gophishClient = createGophishClient();
-    const response = await gophishClient.delete(`/pages/${id}`);
+    const gophishClient = new GophishClient({
+      baseURL: process.env.GOPHISH_BASE_URL || 'https://localhost:3333',
+      apiKey: process.env.GOPHISH_API_KEY || ''
+    });
     
-    if (response.status === 200) {
+    const result = await gophishClient.deletePage(id);
+    
+    if (result.success) {
       res.json({
         status: 'success',
         message: 'Landing page deleted successfully'
       });
     } else {
-      res.status(response.status).json({
+      res.status(result.status || 500).json({
         status: 'error',
         message: `Failed to delete landing page with ID ${id}`,
-        error: response.data
+        error: result.error
       });
     }
   } catch (error) {
